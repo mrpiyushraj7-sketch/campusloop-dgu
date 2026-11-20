@@ -1,0 +1,601 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Global Primitives & RBAC Helpers
+    // ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerified() && request.auth.token.email == 'mrpiyushraj7@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isNonEmptyString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    // ---------------------------------------------------------
+    // Entity Validation Blueprints
+    // ---------------------------------------------------------
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'university', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'fullName', 'email', 'university', 'studentId', 'photoURL', 'role', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && isNonEmptyString(data.fullName, 2, 100)
+        && isNonEmptyString(data.email, 5, 160)
+        && isNonEmptyString(data.university, 2, 140)
+        && isOptionalString(data, 'studentId', 60)
+        && isOptionalString(data, 'photoURL', 500)
+        && data.role in ['student', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt'])
+        && isValidId(data.uid)
+        && isNonEmptyString(data.email, 5, 160)
+        && isValidId(data.grantedBy)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBusiness(data) {
+      return data.keys().hasAll([
+          'name', 'category', 'location', 'area', 'priceRange', 'description',
+          'studentDiscount', 'imageUrl', 'isFeatured', 'isPopular', 'isRecommended',
+          'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'name', 'category', 'cuisine', 'location', 'area', 'priceRange', 'description',
+          'studentDiscount', 'rating', 'imageUrl', 'phone', 'hours', 'isFeatured',
+          'isPopular', 'isRecommended', 'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isNonEmptyString(data.name, 2, 120)
+        && data.category in ['Food & Cafés', 'Shopping', 'Beauty & Salon', 'Fitness', 'Entertainment', 'Events', 'Services']
+        && isOptionalString(data, 'cuisine', 80)
+        && isNonEmptyString(data.location, 2, 180)
+        && isNonEmptyString(data.area, 2, 80)
+        && data.priceRange in ['₹', '₹₹', '₹₹₹']
+        && isNonEmptyString(data.description, 10, 1000)
+        && isNonEmptyString(data.studentDiscount, 2, 120)
+        && (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5))
+        && isNonEmptyString(data.imageUrl, 1, 600)
+        && isOptionalString(data, 'phone', 30)
+        && isOptionalString(data, 'hours', 80)
+        && data.isFeatured is bool
+        && data.isPopular is bool
+        && data.isRecommended is bool
+        && data.isSampleData is bool
+        && data.status in ['active', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOffer(data) {
+      return data.keys().hasAll([
+          'businessName', 'title', 'category', 'discountPercentage', 'discountLabel',
+          'description', 'validUntil', 'terms', 'imageUrl', 'isFeatured',
+          'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'businessId', 'businessName', 'title', 'category', 'discountPercentage', 'discountLabel',
+          'description', 'validUntil', 'terms', 'imageUrl', 'isFeatured',
+          'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isOptionalString(data, 'businessId', 128)
+        && isNonEmptyString(data.businessName, 2, 120)
+        && isNonEmptyString(data.title, 3, 140)
+        && data.category in ['Food Deals', 'Café Offers', 'Shopping Discounts', 'Salon Offers', 'Fitness Deals', 'Entertainment Offers']
+        && data.discountPercentage is number && data.discountPercentage >= 1 && data.discountPercentage <= 100
+        && isNonEmptyString(data.discountLabel, 2, 60)
+        && isNonEmptyString(data.description, 10, 800)
+        && isNonEmptyString(data.validUntil, 4, 40)
+        && isNonEmptyString(data.terms, 5, 600)
+        && isNonEmptyString(data.imageUrl, 1, 600)
+        && data.isFeatured is bool
+        && data.isSampleData is bool
+        && data.status in ['active', 'expired', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll([
+          'providerName', 'title', 'category', 'description', 'price', 'priceUnit',
+          'location', 'contactPhone', 'imageUrl', 'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'providerName', 'title', 'category', 'description', 'price', 'priceUnit',
+          'location', 'contactPhone', 'contactEmail', 'imageUrl', 'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isNonEmptyString(data.providerName, 2, 120)
+        && isNonEmptyString(data.title, 3, 140)
+        && data.category in ['Laundry', 'Printing and Photocopy', 'Salon and Grooming', 'Fitness', 'Transportation', 'Repair Services', 'Other Student Services']
+        && isNonEmptyString(data.description, 10, 800)
+        && data.price is number && data.price >= 0 && data.price <= 100000
+        && isNonEmptyString(data.priceUnit, 1, 40)
+        && isNonEmptyString(data.location, 2, 160)
+        && isNonEmptyString(data.contactPhone, 6, 30)
+        && isOptionalString(data, 'contactEmail', 160)
+        && isNonEmptyString(data.imageUrl, 1, 600)
+        && data.isSampleData is bool
+        && data.status in ['active', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll([
+          'name', 'category', 'date', 'time', 'venue', 'entryFee', 'capacity',
+          'organizer', 'description', 'imageUrl', 'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'name', 'category', 'date', 'time', 'venue', 'entryFee', 'capacity',
+          'organizer', 'description', 'imageUrl', 'isSampleData', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isNonEmptyString(data.name, 3, 140)
+        && data.category in ['College Events', 'Workshops', 'Music Events', 'Competitions', 'Parties', 'Local Activities']
+        && isNonEmptyString(data.date, 4, 40)
+        && isNonEmptyString(data.time, 3, 40)
+        && isNonEmptyString(data.venue, 3, 180)
+        && data.entryFee is number && data.entryFee >= 0 && data.entryFee <= 50000
+        && data.capacity is number && data.capacity >= 1 && data.capacity <= 50000
+        && isNonEmptyString(data.organizer, 2, 120)
+        && isNonEmptyString(data.description, 10, 1000)
+        && isNonEmptyString(data.imageUrl, 1, 600)
+        && data.isSampleData is bool
+        && data.status in ['active', 'cancelled', 'completed']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll([
+          'userId', 'userName', 'userEmail', 'serviceId', 'serviceTitle', 'providerName',
+          'category', 'bookingDate', 'timeSlot', 'price', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'userName', 'userEmail', 'serviceId', 'serviceTitle', 'providerName',
+          'category', 'bookingDate', 'timeSlot', 'notes', 'price', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && isNonEmptyString(data.userName, 2, 100)
+        && isNonEmptyString(data.userEmail, 5, 160)
+        && isValidId(data.serviceId)
+        && isNonEmptyString(data.serviceTitle, 2, 140)
+        && isNonEmptyString(data.providerName, 2, 120)
+        && isNonEmptyString(data.category, 2, 60)
+        && isNonEmptyString(data.bookingDate, 4, 40)
+        && isNonEmptyString(data.timeSlot, 3, 40)
+        && isOptionalString(data, 'notes', 500)
+        && data.price is number && data.price >= 0 && data.price <= 100000
+        && data.status in ['Pending', 'Confirmed', 'Completed', 'Cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEventRegistration(data) {
+      return data.keys().hasAll([
+          'userId', 'userName', 'userEmail', 'eventId', 'eventName', 'eventDate',
+          'eventTime', 'venue', 'entryFee', 'ticketCode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'userName', 'userEmail', 'studentId', 'eventId', 'eventName', 'eventDate',
+          'eventTime', 'venue', 'entryFee', 'ticketCode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && isNonEmptyString(data.userName, 2, 100)
+        && isNonEmptyString(data.userEmail, 5, 160)
+        && isOptionalString(data, 'studentId', 60)
+        && isValidId(data.eventId)
+        && isNonEmptyString(data.eventName, 2, 140)
+        && isNonEmptyString(data.eventDate, 4, 40)
+        && isNonEmptyString(data.eventTime, 3, 40)
+        && isNonEmptyString(data.venue, 2, 180)
+        && data.entryFee is number && data.entryFee >= 0 && data.entryFee <= 50000
+        && isNonEmptyString(data.ticketCode, 6, 32) && data.ticketCode.matches('^[A-Z0-9\\-]+$')
+        && data.status in ['Confirmed', 'Cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRedemption(data) {
+      return data.keys().hasAll([
+          'userId', 'userName', 'userEmail', 'offerId', 'offerTitle', 'businessName',
+          'discountLabel', 'code', 'validUntil', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'userName', 'userEmail', 'offerId', 'offerTitle', 'businessName',
+          'discountLabel', 'code', 'validUntil', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && isNonEmptyString(data.userName, 2, 100)
+        && isNonEmptyString(data.userEmail, 5, 160)
+        && isValidId(data.offerId)
+        && isNonEmptyString(data.offerTitle, 2, 140)
+        && isNonEmptyString(data.businessName, 2, 120)
+        && isNonEmptyString(data.discountLabel, 2, 60)
+        && isNonEmptyString(data.code, 6, 32) && data.code.matches('^[A-Z0-9\\-]+$')
+        && isNonEmptyString(data.validUntil, 4, 40)
+        && data.status in ['Active', 'Used', 'Expired']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFavorite(data) {
+      return data.keys().hasAll(['userId', 'itemId', 'itemType', 'title', 'category', 'imageUrl', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'itemId', 'itemType', 'title', 'subtitle', 'category', 'location', 'imageUrl', 'discountLabel', 'createdAt'])
+        && isValidId(data.userId)
+        && isValidId(data.itemId)
+        && data.itemType in ['business', 'offer', 'event']
+        && isNonEmptyString(data.title, 2, 140)
+        && isOptionalString(data, 'subtitle', 140)
+        && isNonEmptyString(data.category, 2, 60)
+        && isOptionalString(data, 'location', 180)
+        && isNonEmptyString(data.imageUrl, 1, 600)
+        && isOptionalString(data, 'discountLabel', 120)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPartnerApplication(data) {
+      return data.keys().hasAll([
+          'submittedBy', 'businessName', 'ownerName', 'category', 'contactNumber',
+          'email', 'address', 'proposedDiscount', 'description', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'submittedBy', 'businessName', 'ownerName', 'category', 'contactNumber',
+          'email', 'address', 'proposedDiscount', 'description', 'imageUrl', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.submittedBy)
+        && isNonEmptyString(data.businessName, 2, 120)
+        && isNonEmptyString(data.ownerName, 2, 100)
+        && data.category in ['Food & Cafés', 'Shopping', 'Beauty & Salon', 'Fitness', 'Entertainment', 'Events', 'Services']
+        && isNonEmptyString(data.contactNumber, 6, 30)
+        && isNonEmptyString(data.email, 5, 160)
+        && isNonEmptyString(data.address, 5, 240)
+        && isNonEmptyString(data.proposedDiscount, 2, 120)
+        && isNonEmptyString(data.description, 10, 1000)
+        && isOptionalString(data, 'imageUrl', 600)
+        && data.status in ['Pending', 'Approved', 'Rejected']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // ---------------------------------------------------------
+    // Collection Match Blocks
+    // ---------------------------------------------------------
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId) && incoming().role == 'student' && incoming().email == request.auth.token.email) ||
+          (isBootstrappedAdmin() && isOwner(userId) && incoming().role == 'admin') ||
+          isAdmin()
+        );
+
+      allow update: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().email == existing().email
+            && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'university', 'studentId', 'photoURL', 'updatedAt'])
+          ) ||
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'university', 'studentId', 'photoURL', 'role', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerified()
+        && isValidId(userId)
+        && isValidAdminRecord(incoming())
+        && incoming().uid == userId
+        && incoming().grantedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && isAdmin();
+      allow update: if false;
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+
+    match /businesses/{businessId} {
+      allow get: if isSignedIn() && isValidId(businessId) && (resource.data.status == 'active' || isAdmin());
+      allow list: if isSignedIn() && (resource.data.status == 'active' || isBootstrappedAdmin());
+      allow create: if isVerified()
+        && isValidId(businessId)
+        && isValidBusiness(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isVerified()
+        && isValidId(businessId)
+        && isValidBusiness(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'category', 'cuisine', 'location', 'area', 'priceRange', 'description',
+          'studentDiscount', 'rating', 'imageUrl', 'phone', 'hours', 'isFeatured',
+          'isPopular', 'isRecommended', 'isSampleData', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(businessId) && isAdmin();
+    }
+
+    match /offers/{offerId} {
+      allow get: if isSignedIn() && isValidId(offerId) && (resource.data.status == 'active' || isAdmin());
+      allow list: if isSignedIn() && (resource.data.status == 'active' || isBootstrappedAdmin());
+      allow create: if isVerified()
+        && isValidId(offerId)
+        && isValidOffer(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isVerified()
+        && isValidId(offerId)
+        && isValidOffer(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'businessId', 'businessName', 'title', 'category', 'discountPercentage', 'discountLabel',
+          'description', 'validUntil', 'terms', 'imageUrl', 'isFeatured', 'isSampleData', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(offerId) && isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow get: if isSignedIn() && isValidId(serviceId) && (resource.data.status == 'active' || isAdmin());
+      allow list: if isSignedIn() && (resource.data.status == 'active' || isBootstrappedAdmin());
+      allow create: if isVerified()
+        && isValidId(serviceId)
+        && isValidService(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isVerified()
+        && isValidId(serviceId)
+        && isValidService(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'providerName', 'title', 'category', 'description', 'price', 'priceUnit',
+          'location', 'contactPhone', 'contactEmail', 'imageUrl', 'isSampleData', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(serviceId) && isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow get: if isSignedIn() && isValidId(eventId) && (resource.data.status == 'active' || isAdmin());
+      allow list: if isSignedIn() && (resource.data.status == 'active' || isBootstrappedAdmin());
+      allow create: if isVerified()
+        && isValidId(eventId)
+        && isValidEvent(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isVerified()
+        && isValidId(eventId)
+        && isValidEvent(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'category', 'date', 'time', 'venue', 'entryFee', 'capacity',
+          'organizer', 'description', 'imageUrl', 'isSampleData', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(eventId) && isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isValidId(bookingId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/services/$(incoming().serviceId));
+
+      allow update: if isVerified()
+        && isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().userId == existing().userId
+        && incoming().serviceId == existing().serviceId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            // Student cancellation action (terminal states locked)
+            existing().userId == request.auth.uid
+            && existing().status in ['Pending', 'Confirmed']
+            && incoming().status == 'Cancelled'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          (
+            // Admin status management
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(bookingId) && isAdmin();
+    }
+
+    match /eventRegistrations/{registrationId} {
+      allow get: if isValidId(registrationId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(registrationId)
+        && isValidEventRegistration(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'Confirmed'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/events/$(incoming().eventId));
+
+      allow update: if isVerified()
+        && isValidId(registrationId)
+        && isValidEventRegistration(incoming())
+        && incoming().userId == existing().userId
+        && incoming().eventId == existing().eventId
+        && incoming().ticketCode == existing().ticketCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            // Student cancellation action (terminal state Cancelled locked)
+            existing().userId == request.auth.uid
+            && existing().status == 'Confirmed'
+            && incoming().status == 'Cancelled'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(registrationId) && isAdmin();
+    }
+
+    match /redemptions/{redemptionId} {
+      allow get: if isValidId(redemptionId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(redemptionId)
+        && isValidRedemption(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'Active'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/offers/$(incoming().offerId));
+
+      allow update: if isVerified()
+        && isValidId(redemptionId)
+        && isValidRedemption(incoming())
+        && incoming().userId == existing().userId
+        && incoming().offerId == existing().offerId
+        && incoming().code == existing().code
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            // Student mark as used action (terminal states Used/Expired locked)
+            existing().userId == request.auth.uid
+            && existing().status == 'Active'
+            && incoming().status == 'Used'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(redemptionId) && isAdmin();
+    }
+
+    match /favorites/{favoriteId} {
+      allow get: if isValidId(favoriteId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(favoriteId)
+        && isValidFavorite(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+
+      allow delete: if isVerified() && isValidId(favoriteId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    match /partnerApplications/{applicationId} {
+      allow get: if isValidId(applicationId) && isSignedIn() && (existing().submittedBy == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.submittedBy == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(applicationId)
+        && isValidPartnerApplication(incoming())
+        && incoming().submittedBy == request.auth.uid
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified()
+        && isValidId(applicationId)
+        && isValidPartnerApplication(incoming())
+        && incoming().submittedBy == existing().submittedBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isValidId(applicationId) && isAdmin();
+    }
+  }
+}

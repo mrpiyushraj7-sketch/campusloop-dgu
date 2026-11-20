@@ -1,0 +1,413 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student or administrator profile stored in Firestore",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "university": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "studentId": { "type": "string", "maxLength": 60 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "email", "university", "role", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin role directory used by security rules for RBAC",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "grantedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    },
+    "Business": {
+      "title": "Business",
+      "description": "Local Dehradun café, restaurant, store, salon, fitness center, or entertainment venue",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": {
+          "type": "string",
+          "enum": ["Food & Cafés", "Shopping", "Beauty & Salon", "Fitness", "Entertainment", "Events", "Services"]
+        },
+        "cuisine": { "type": "string", "maxLength": 80 },
+        "location": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "area": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "priceRange": { "type": "string", "enum": ["₹", "₹₹", "₹₹₹"] },
+        "description": { "type": "string", "minLength": 10, "maxLength": 1000 },
+        "studentDiscount": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "rating": { "type": "number" },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "hours": { "type": "string", "maxLength": 80 },
+        "isFeatured": { "type": "boolean" },
+        "isPopular": { "type": "boolean" },
+        "isRecommended": { "type": "boolean" },
+        "isSampleData": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "category",
+        "location",
+        "area",
+        "priceRange",
+        "description",
+        "studentDiscount",
+        "imageUrl",
+        "isFeatured",
+        "isPopular",
+        "isRecommended",
+        "isSampleData",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Offer": {
+      "title": "Offer",
+      "description": "Exclusive student discount or deal redeemable for a unique code",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "category": {
+          "type": "string",
+          "enum": ["Food Deals", "Café Offers", "Shopping Discounts", "Salon Offers", "Fitness Deals", "Entertainment Offers"]
+        },
+        "discountPercentage": { "type": "number" },
+        "discountLabel": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 800 },
+        "validUntil": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "terms": { "type": "string", "minLength": 5, "maxLength": 600 },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "isFeatured": { "type": "boolean" },
+        "isSampleData": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "expired", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "businessName",
+        "title",
+        "category",
+        "discountPercentage",
+        "discountLabel",
+        "description",
+        "validUntil",
+        "terms",
+        "imageUrl",
+        "isFeatured",
+        "isSampleData",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Bookable student-friendly local service around Dehradun",
+      "type": "object",
+      "properties": {
+        "providerName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "category": {
+          "type": "string",
+          "enum": ["Laundry", "Printing and Photocopy", "Salon and Grooming", "Fitness", "Transportation", "Repair Services", "Other Student Services"]
+        },
+        "description": { "type": "string", "minLength": 10, "maxLength": 800 },
+        "price": { "type": "number" },
+        "priceUnit": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "location": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "contactPhone": { "type": "string", "minLength": 6, "maxLength": 30 },
+        "contactEmail": { "type": "string", "maxLength": 160 },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "isSampleData": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "providerName",
+        "title",
+        "category",
+        "description",
+        "price",
+        "priceUnit",
+        "location",
+        "contactPhone",
+        "imageUrl",
+        "isSampleData",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EventItem": {
+      "title": "EventItem",
+      "description": "College and Dehradun local event open for student registration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "category": {
+          "type": "string",
+          "enum": ["College Events", "Workshops", "Music Events", "Competitions", "Parties", "Local Activities"]
+        },
+        "date": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "time": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "venue": { "type": "string", "minLength": 3, "maxLength": 180 },
+        "entryFee": { "type": "number" },
+        "capacity": { "type": "number" },
+        "organizer": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 1000 },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "isSampleData": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "cancelled", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "category",
+        "date",
+        "time",
+        "venue",
+        "entryFee",
+        "capacity",
+        "organizer",
+        "description",
+        "imageUrl",
+        "isSampleData",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Student service booking record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 160 },
+        "serviceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "serviceTitle": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "providerName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "bookingDate": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "timeSlot": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Completed", "Cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "userEmail",
+        "serviceId",
+        "serviceTitle",
+        "providerName",
+        "category",
+        "bookingDate",
+        "timeSlot",
+        "price",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EventRegistration": {
+      "title": "EventRegistration",
+      "description": "Student registration for a CampusLoop event",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 160 },
+        "studentId": { "type": "string", "maxLength": 60 },
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "eventName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "eventDate": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "eventTime": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "venue": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "entryFee": { "type": "number" },
+        "ticketCode": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "status": { "type": "string", "enum": ["Confirmed", "Cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "userEmail",
+        "eventId",
+        "eventName",
+        "eventDate",
+        "eventTime",
+        "venue",
+        "entryFee",
+        "ticketCode",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Redemption": {
+      "title": "Redemption",
+      "description": "Redeemed student offer with unique verification code",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 160 },
+        "offerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "offerTitle": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "businessName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "discountLabel": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "code": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "validUntil": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "status": { "type": "string", "enum": ["Active", "Used", "Expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "userEmail",
+        "offerId",
+        "offerTitle",
+        "businessName",
+        "discountLabel",
+        "code",
+        "validUntil",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "Student wishlist bookmark for a business, offer, or event",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemType": { "type": "string", "enum": ["business", "offer", "event"] },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "subtitle": { "type": "string", "maxLength": 140 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "location": { "type": "string", "maxLength": 180 },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "discountLabel": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "itemId",
+        "itemType",
+        "title",
+        "category",
+        "imageUrl",
+        "createdAt"
+      ]
+    },
+    "PartnerApplication": {
+      "title": "PartnerApplication",
+      "description": "Local Dehradun business application to partner with CampusLoop",
+      "type": "object",
+      "properties": {
+        "submittedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "businessName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "ownerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "category": {
+          "type": "string",
+          "enum": ["Food & Cafés", "Shopping", "Beauty & Salon", "Fitness", "Entertainment", "Events", "Services"]
+        },
+        "contactNumber": { "type": "string", "minLength": 6, "maxLength": 30 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "address": { "type": "string", "minLength": 5, "maxLength": 240 },
+        "proposedDiscount": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 1000 },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "submittedBy",
+        "businessName",
+        "ownerName",
+        "category",
+        "contactNumber",
+        "email",
+        "address",
+        "proposedDiscount",
+        "description",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student and administrator profile records"
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Authorised administrator access control list"
+    },
+    "/businesses/{businessId}": {
+      "schema": { "$ref": "#/entities/Business" },
+      "description": "Local businesses around Dehradun and DBS Global University"
+    },
+    "/offers/{offerId}": {
+      "schema": { "$ref": "#/entities/Offer" },
+      "description": "Exclusive student discounts and offers"
+    },
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Local bookable student services"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/EventItem" },
+      "description": "College and Dehradun local events"
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Student service booking requests and statuses"
+    },
+    "/eventRegistrations/{registrationId}": {
+      "schema": { "$ref": "#/entities/EventRegistration" },
+      "description": "Student registrations for campus and local events"
+    },
+    "/redemptions/{redemptionId}": {
+      "schema": { "$ref": "#/entities/Redemption" },
+      "description": "Student offer redemption codes and statuses"
+    },
+    "/favorites/{favoriteId}": {
+      "schema": { "$ref": "#/entities/Favorite" },
+      "description": "User wishlist entries for businesses, offers, and events"
+    },
+    "/partnerApplications/{applicationId}": {
+      "schema": { "$ref": "#/entities/PartnerApplication" },
+      "description": "Business partnership onboarding applications"
+    }
+  }
+}

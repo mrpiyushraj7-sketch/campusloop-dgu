@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand-primary: #673AB7;
+  --color-brand-dark: #45207A;
+  --color-brand-lavender: #F3EDFF;
+  --color-brand-canvas: #FAFAFC;
+  --color-brand-ink: #252033;
+  --color-brand-muted: #645D78;
+  --color-brand-border: #EAE6F3;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-brand-ink);
+    background-color: var(--color-brand-canvas);
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  button, a, select, input, textarea {
+    outline-color: #673AB7;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

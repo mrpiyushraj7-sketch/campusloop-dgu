@@ -1,0 +1,6 @@
+{
+  "name": "CampusLoop",
+  "description": "Your Campus. Your City. Your Loop. Student local discovery platform connecting DBS Global University students in Dehradun with cafés, exclusive student offers, local services, and campus events.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
